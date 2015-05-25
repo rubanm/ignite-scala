@@ -1,6 +1,7 @@
 package ignite.scala
 
 import com.twitter.algebird.Semigroup
+import org.apache.ignite.IgniteCache
 import java.io.Serializable
 
 object IgnitePipe {
@@ -10,11 +11,12 @@ object IgnitePipe {
   def from[T](iter: Iterable[T])(implicit c: ComputeRunner): IgnitePipe[T] =
     IterablePipe[T](iter)
 
-  def from[K, V, T](iter: Iterable[CacheAffinity[K, V]])(f: CacheAffinity[K, V] => T)(implicit c: ComputeRunner): CacheAffinityPipe[K, V, T] =
+  def collocated[K, V, T](cache: IgniteCache[K, V], keys: Set[K])(f: (IgniteCache[K, V], K) => T)(implicit c: ComputeRunner): CacheAffinityPipe[K, V, T] =
     new CacheAffinityPipe[K, V, T] {
       override def compute = c
-      override def source = iter
-      override def transform = f
+      override def source = keys.map(CacheAffinity[K, V](cache.getName, _))
+      override def transform = { ca: CacheAffinity[K, V] => f(cache, ca.key) }
+      // TODO: this can be inefficient. keyset enrichment should happen in ComputeRunner
     }
 }
 
@@ -35,7 +37,9 @@ sealed trait IgnitePipe[T] extends Serializable {
   /**
    * Transform each element using the function f.
    *
-   * This is executed on the cluster nodes.
+   * This is executed on the cluster nodes. Chained map transforms
+   * are composed and executed once on the cluster nodes. Use .fork
+   * to manually split the chain if tuning is required.
    */
   def map[U](f: T => U): IgnitePipe[U]
 
@@ -47,8 +51,7 @@ sealed trait IgnitePipe[T] extends Serializable {
    * on the client.
    *
    * To manually split the flatMap chain, use .fork. Forking is useful when
-   * dealing with long, lazy chains, or when adding a barrier is desired
-   * so that the computation can be re-used.
+   * dealing with long, lazy chains, or when adding a barrier is desired.
    */
   def flatMap[U](f: T => TraversableOnce[U]): IgnitePipe[U]
 

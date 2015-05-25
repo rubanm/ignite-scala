@@ -63,7 +63,7 @@ private object IgniteClosureConversions {
     new AccumulatingReducer[A](sg, n)
 }
 
-final case class CacheAffinity[K, V](cache: IgniteCache[K, V], key: String)
+final case class CacheAffinity[K, V](cacheName: String, key: K)
 
 /**
  * Provides Scala-friendly api to IgniteCompute class.
@@ -85,7 +85,7 @@ final case class ComputeRunner(ic: IgniteCompute) {
 
   def affinityApply[A, K, V](cas: Iterable[CacheAffinity[K, V]])(f: CacheAffinity[K, V] => A): Iterable[A] = cas
     .map { ca =>
-      List(ic.affinityCall(ca.cache.getName, ca.key,
+      List(ic.affinityCall(ca.cacheName, ca.key,
         scala2callable(() => f(ca))))
     }
     .reduceOption(Semigroup.listSemigroup[A].plus(_, _))
