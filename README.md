@@ -27,10 +27,27 @@ val chain = IgnitePipe.from("The quick brown fox jumps over the lazy dog.".split
   .map(_.length) // fork
   .reduce // join
 
-chain.execute
+chain.execute // Option[Int]
 ```
-More examples to follow.
+#### example 2 - working with distributed cache
+```scala
+val cache = {
+  val cfg = new CacheConfiguration[K, V]
+  cfg.setName(name)
+  ignite.getOrCreateCache(cfg)
+}
 
+val process: V => R
+val isValid: R => Boolean
+
+IgnitePipe.from(keys)
+  .map { k =>
+    val v = cache.get(k)
+    process(v)
+  }
+  .filter(isValid)
+  .execute // Iterable[R]
+```
 #### api
 
 ```scala
