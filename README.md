@@ -4,7 +4,7 @@ Scala API for distributed closures on [Apache Ignite](https://ignite.incubator.a
 
 http://apacheignite.readme.io/v1.0/docs/distributed-closures
 
-#### Example 0 - Cluster setup
+#### example 0 - cluster setup
 ```scala
 import org.apache.ignite._
 import org.apache.ignite.configuration._
@@ -15,9 +15,9 @@ val cfg = new IgniteConfiguration
 
 val ignite = Ignition.start(cfg)
 val compute = ignite.compute(cluster)
-implicit val ic = SIgniteCompute(compute)
+implicit val cr = ComputeRunner(compute)
 ```
-#### Example 1 - Character count
+#### example 1 - character count
 ```scala
 import com.twitter.algebird.Semigroup
 
