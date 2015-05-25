@@ -32,7 +32,7 @@ final case object EmptyReduction extends Reduction[Nothing] {
 /**
  * Represents a reduction containing a computed value
  */
-final case class ValueReduction[T](value: T)(implicit val compute: SIgniteCompute)
+final case class ValueReduction[T](value: T)(implicit val compute: ComputeRunner)
   extends Reduction[T] {
 
   override def execute = Some(value)

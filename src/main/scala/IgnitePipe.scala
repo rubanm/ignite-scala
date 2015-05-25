@@ -7,10 +7,10 @@ object IgnitePipe {
 
   def empty: IgnitePipe[Nothing] = EmptyPipe
 
-  def from[T](iter: Iterable[T])(implicit c: SIgniteCompute): IgnitePipe[T] =
+  def from[T](iter: Iterable[T])(implicit c: ComputeRunner): IgnitePipe[T] =
     IterablePipe[T](iter)
 
-  def from[K, V, T](iter: Iterable[CacheAffinity[K, V]])(f: CacheAffinity[K, V] => T)(implicit c: SIgniteCompute): CacheAffinityPipe[K, V, T] =
+  def from[K, V, T](iter: Iterable[CacheAffinity[K, V]])(f: CacheAffinity[K, V] => T)(implicit c: ComputeRunner): CacheAffinityPipe[K, V, T] =
     new CacheAffinityPipe[K, V, T] {
       override def compute = c
       override def source = iter
@@ -104,7 +104,7 @@ final case object EmptyPipe extends IgnitePipe[Nothing] {
  * for underlying computation.
  */
 trait HasComputeConfig[S, T] {
-  def compute: SIgniteCompute
+  def compute: ComputeRunner
 
   def source: Iterable[S]
 
@@ -215,7 +215,7 @@ final case class MergedPipe[T](left: IgnitePipe[T], right: IgnitePipe[T])
  * A pipe containing a sequence of values.
  * Can be generally used as the starting point in the execution chain.
  */
-final case class IterablePipe[T](iter: Iterable[T])(implicit val compute: SIgniteCompute)
+final case class IterablePipe[T](iter: Iterable[T])(implicit val compute: ComputeRunner)
   extends IgnitePipe[T] {
 
   override def map[U](f: T => U) = PipeHelper.toTransformValuePipe[T, U](this)(f)

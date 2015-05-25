@@ -48,7 +48,7 @@ class AccumulatingReducer[A](sg: Semigroup[A], n: Int)
 /**
  * Conversions from Scala function to Ignite's closure classes.
  */
-object IgniteClosureConversions {
+private object IgniteClosureConversions {
 
   def scala2closure[A, B](f: Function1[A, B]): IgniteClosure[A, B] =
     new IgniteClosure[A, B]() { override def apply(a: A) = f(a) }
@@ -63,12 +63,12 @@ object IgniteClosureConversions {
     new AccumulatingReducer[A](sg, n)
 }
 
-case class CacheAffinity[K, V](cache: IgniteCache[K, V], key: String)
+final case class CacheAffinity[K, V](cache: IgniteCache[K, V], key: String)
 
 /**
  * Provides Scala-friendly api to IgniteCompute class.
  */
-case class SIgniteCompute(ic: IgniteCompute) {
+final case class ComputeRunner(ic: IgniteCompute) {
   import IgniteClosureConversions._
 
   def apply[A, B](x: A)(f: A => B): B =
