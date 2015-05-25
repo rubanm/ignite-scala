@@ -20,21 +20,33 @@ object IgnitePipe {
 
 /**
  * Provides composable distributed closures that can run on Apache Ignite.
+ *
+ * Allows chaining functions to be executed on the cluster. Reduction is done
+ * on the client. Note that pipe operations like flattening, filtering are also
+ * performed on the client after gathering results from the nodes.
+ *
+ * Best practice is to push computations to the cluster as much as possible
+ * and flatten, filter on the client only if the scatter-gather overhead is
+ * acceptable and results can fit on the client.
  */
 sealed trait IgnitePipe[T] extends Serializable {
   // TODO: make this covariant
 
-  /** Transform each element using the function f */
+  /**
+   * Transform each element using the function f.
+   *
+   * This is executed on the cluster nodes.
+   */
   def map[U](f: T => U): IgnitePipe[U]
 
   /**
    * Transform each value using the function f and flatten the result.
    *
-   * Flattening step is performed on the client. If you have a chain of flatMaps,
+   * Flatten step is performed on the client. If you have a chain of flatMaps,
    * all functions in the chain are composed and flattening is performed once
    * on the client.
    *
-   * To manually split the flatMap chain, use .fork. This is useful when
+   * To manually split the flatMap chain, use .fork. Forking is useful when
    * dealing with long, lazy chains, or when adding a barrier is desired
    * so that the computation can be re-used.
    */
@@ -241,6 +253,9 @@ private object PipeHelper {
       override def transform = f
     }
 
+  // this adds a barrier. the supplied function f is executed
+  // on the cluster after flatten step of the input pipe is
+  // executed on the client
   def toTransformValuePipe[S, T, U](fvp: FlatMapValuePipe[S, T])(f: T => U): TransformValuePipe[T, U] =
     IterablePipe(fvp.execute)(fvp.compute).map(f)
 
@@ -251,6 +266,7 @@ private object PipeHelper {
       override def transform = cap.transform.andThen(f)
     }
 
+  // this adds a barrier similar to the non-affinity version
   def toCacheAffinityPipe[K, V, T, U](fcap: FlatMapCacheAffinityPipe[K, V, T])(f: T => U): TransformValuePipe[T, U] =
     IterablePipe(fcap.execute)(fcap.compute).map(f)
 
@@ -270,6 +286,7 @@ private object PipeHelper {
 }
 
 object ReduceHelper {
+  // creates a pipe representing the result of the reduction
   def toPipe[S, T](r: Reduction[T] with HasComputeConfig[S, _]): IgnitePipe[T] =
     new TransformValuePipe[T, T] {
       override val compute = r.compute

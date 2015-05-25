@@ -5,7 +5,7 @@ import java.io.Serializable
 
 /**
  * Represents a reduction of Ignite's distributed closure results.
- * These are performed in the client and are akin to the join step in fork-join.
+ * These are performed on the client and are akin to the join step in fork-join.
  */
 sealed trait Reduction[T] extends Serializable {
 
