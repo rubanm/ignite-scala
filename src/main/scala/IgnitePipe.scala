@@ -28,10 +28,11 @@ sealed trait IgnitePipe[T] extends Serializable {
   def map[U](f: T => U): IgnitePipe[U]
 
   /**
-   * Transform each function using the function f and flatten the result.
+   * Transform each value using the function f and flatten the result.
    *
    * Flattening step is performed on the client. If you have a chain of flatMaps,
-   * all functions in the chain are composed and run once on the client.
+   * all functions in the chain are composed and flattening is performed once
+   * on the client.
    *
    * To manually split the flatMap chain, use .fork. This is useful when
    * dealing with long, lazy chains, or when adding a barrier is desired
@@ -49,6 +50,7 @@ sealed trait IgnitePipe[T] extends Serializable {
 
   /**
    * Prepare a Reduction based on the provided Semigroup.
+   *
    * Note that results can arrived from cluster nodes in any order,
    * so the operation has to be associative and commutative.
    */
