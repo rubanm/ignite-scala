@@ -48,7 +48,17 @@ IgnitePipe.from(keys)
   .filter(isValid)
   .execute // Iterable[R]
 ```
-#### api
+#### example 3 -collocating compute with cache
+Ignite allows routing computations to the nodes where data is cached.
+```scala
+IgnitePipe.collocated(cache, keys) { (c, k) =>
+  val v = c.localPeek(k)
+  process(v)
+}
+.filter(isValid)
+.execute
+```
+#### core api
 
 ```scala
 trait IgnitePipe[T] {
