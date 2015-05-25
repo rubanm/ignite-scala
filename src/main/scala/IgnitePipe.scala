@@ -66,7 +66,12 @@ sealed trait IgnitePipe[T] extends Serializable {
    * Note that results can arrived from cluster nodes in any order,
    * so the operation has to be associative and commutative.
    */
-  def reduce()(implicit sg: Semigroup[T]): Reduction[T]
+  def reduce(implicit sg: Semigroup[T]): Reduction[T]
+
+  def ++(p: IgnitePipe[T]): IgnitePipe[T] = p match {
+    case IterablePipe(iter) if iter.isEmpty => this
+    case _ => MergedPipe(this, p)
+  }
 
   /**
    * Manually add a fork in the execution chain.
@@ -77,10 +82,6 @@ sealed trait IgnitePipe[T] extends Serializable {
 
   /** Execute the chain and return the computed values. */
   def execute: Iterable[T]
-
-  /** Execute the chain and create a new pipe from the result. */
-  def executeAndThen[U](f: Iterable[T] => IgnitePipe[U]): IgnitePipe[U] =
-    f(execute)
 }
 
 final case object EmptyPipe extends IgnitePipe[Nothing] {
@@ -90,7 +91,7 @@ final case object EmptyPipe extends IgnitePipe[Nothing] {
   override def flatMap[U](f: Nothing => TraversableOnce[U]) =
     sys.error("flatMap called on EmptyPipe")
 
-  override def reduce()(implicit sg: Semigroup[Nothing]) = EmptyReduction
+  override def reduce(implicit sg: Semigroup[Nothing]) = EmptyReduction
 
   override def fork = this
 
@@ -118,10 +119,10 @@ sealed abstract class TransformValuePipe[S, T] extends IgnitePipe[T]
 
   override def map[U](f: T => U) = PipeHelper.toTransformValuePipe[S, T, U](this)(f)
 
-  def flatMap[U](f: T => TraversableOnce[U]) =
+  override def flatMap[U](f: T => TraversableOnce[U]) =
     PipeHelper.toFlatMapValuePipe[S, T, U](this)(f)
 
-  override def reduce()(implicit sg: Semigroup[T]) =
+  override def reduce(implicit sg: Semigroup[T]) =
     TransformValueReduction.from(this)(sg)
 
   override def fork = flatMap(Iterable(_)).map(identity)
@@ -142,7 +143,7 @@ sealed abstract class FlatMapValuePipe[S, T] extends IgnitePipe[T]
   override def flatMap[U](f: T => TraversableOnce[U]) =
     PipeHelper.toFlatMapValuePipe[S, T, U](this)(f)
 
-  override def reduce()(implicit sg: Semigroup[T]) =
+  override def reduce(implicit sg: Semigroup[T]) =
     FlatMapValueReduction.from(this)(sg)
 
   override def fork = flatMap(Iterable(_)).map(identity)
@@ -163,7 +164,7 @@ sealed abstract class CacheAffinityPipe[K, V, T] extends IgnitePipe[T]
   override def flatMap[U](f: T => TraversableOnce[U]) =
     PipeHelper.toFlatMapCacheAffinityPipe[K, V, T, U](this)(f)
 
-  override def reduce()(implicit sg: Semigroup[T]) =
+  override def reduce(implicit sg: Semigroup[T]) =
     CacheAffinityValueReduction.from(this)(sg)
 
   override def fork = flatMap(Iterable(_)).map(identity)
@@ -185,12 +186,29 @@ sealed abstract class FlatMapCacheAffinityPipe[K, V, T] extends IgnitePipe[T]
   override def flatMap[U](f: T => TraversableOnce[U]) =
     PipeHelper.toFlatMapCacheAffinityPipe[K, V, T, U](this)(f)
 
-  override def reduce()(implicit sg: Semigroup[T]) =
+  override def reduce(implicit sg: Semigroup[T]) =
     FlatMapCacheAffinityReduction.from(this)(sg)
 
   override def fork = flatMap(Iterable(_)).map(identity)
 
   override def execute = compute.flatMapAffinityApply(source)(transform)
+}
+
+final case class MergedPipe[T](left: IgnitePipe[T], right: IgnitePipe[T])
+  extends IgnitePipe[T] {
+
+  override def map[U](f: T => U) =
+    MergedPipe(left.map(f), right.map(f))
+
+  override def flatMap[U](f: T => TraversableOnce[U]) =
+    MergedPipe(left.flatMap(f), right.flatMap(f))
+
+  override def reduce(implicit sg: Semigroup[T]) =
+    MergedReduction(left.reduce, right.reduce)
+
+  override def fork = flatMap(Iterable(_)).map(identity)
+
+  override def execute = left.execute ++ right.execute
 }
 
 /**
@@ -202,10 +220,10 @@ final case class IterablePipe[T](iter: Iterable[T])(implicit val compute: SIgnit
 
   override def map[U](f: T => U) = PipeHelper.toTransformValuePipe[T, U](this)(f)
 
-  def flatMap[U](f: T => TraversableOnce[U]) =
+  override def flatMap[U](f: T => TraversableOnce[U]) =
     PipeHelper.toFlatMapValuePipe[T, U](this)(f)
 
-  override def reduce()(implicit sg: Semigroup[T]) =
+  override def reduce(implicit sg: Semigroup[T]) =
     ValueReduction(iter.reduce(sg.plus(_, _)))(compute)
 
   override def fork = this

@@ -40,7 +40,6 @@ final case class ValueReduction[T](value: T)(implicit val compute: SIgniteComput
   override def toPipe = IgnitePipe.from(List(value))(compute)
 }
 
-
 object TransformValueReduction {
   def from[S, T](tvp: TransformValuePipe[S, T])(passedSg: Semigroup[T]): TransformValueReduction[S, T] =
     new TransformValueReduction[S, T] {
@@ -143,4 +142,14 @@ sealed abstract class FlatMapCacheAffinityReduction[K, V, T] extends Reduction[T
     .flatMap(_.reduceOption(sg.plus(_, _)))
 
   override def toPipe = ReduceHelper.toPipe[CacheAffinity[K, V], T](this)
+}
+
+final case class MergedReduction[T](left: Reduction[T],
+  right: Reduction[T])(implicit val sg: Semigroup[T])
+  extends Reduction[T] {
+
+  override def execute =
+    Semigroup.optionSemigroup[T].plus(left.execute, right.execute)
+
+  override def toPipe = MergedPipe(left.toPipe, right.toPipe)
 }
