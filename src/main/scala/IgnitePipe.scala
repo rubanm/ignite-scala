@@ -268,3 +268,12 @@ private object PipeHelper {
       override def transform = fcap.transform.andThen(_.map(f)).andThen(_.flatten)
     }
 }
+
+object ReduceHelper {
+  def toPipe[S, T](r: Reduction[T] with HasComputeConfig[S, _]): IgnitePipe[T] =
+    new TransformValuePipe[T, T] {
+      override val compute = r.compute
+      override def source = r.execute.toIterable
+      override def transform = identity
+    }
+}
