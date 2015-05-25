@@ -4,6 +4,30 @@ Scala API for distributed closures on [Apache Ignite](https://ignite.incubator.a
 
 http://apacheignite.readme.io/v1.0/docs/distributed-closures
 
+#### api
+
+```scala
+trait IgnitePipe[T] {
+  
+  def map[U](f: T => U): IgnitePipe[U]
+  
+  def flatMap[U](f: T => TraversableOnce[U]): IgnitePipe[U]
+  
+  def ++(p: IgnitePipe[T]): IgnitePipe[T]
+  
+  def reduce(implicit sg: Semigroup[T]): Reduction[T]
+  
+  def execute: Iterable[T]
+}
+
+trait Reduction[T] {
+
+  def execute: Option[T]
+
+  def toPipe: IgnitePipe[T]
+}
+```
+
 #### example 0 - cluster setup
 ```scala
 import org.apache.ignite._
