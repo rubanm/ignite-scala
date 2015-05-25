@@ -2,6 +2,8 @@
 
 Scala API for distributed closures on [Apache Ignite](https://ignite.incubator.apache.org/). Inspired by [Scalding](https://github.com/twitter/scalding/).
 
+http://apacheignite.readme.io/v1.0/docs/distributed-closures
+
 #### Example 0 - Cluster setup
 ```scala
 import org.apache.ignite._
