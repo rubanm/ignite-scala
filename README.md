@@ -61,6 +61,7 @@ IgnitePipe.collocated(cache, keys) { (c, k) =>
 #### core api
 
 ```scala
+/* Provides composable distributed closures that can run on Apache Ignite. */
 trait IgnitePipe[T] {
   
   def map[U](f: T => U): IgnitePipe[U]
@@ -74,6 +75,7 @@ trait IgnitePipe[T] {
   def execute: Iterable[T]
 }
 
+/* Represents a reduction of Ignite's distributed closure results.*/
 trait Reduction[T] {
 
   def execute: Option[T]
