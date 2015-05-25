@@ -147,5 +147,6 @@ sealed abstract class FlatMapCacheAffinityReduction[K, V, T] extends Reduction[T
 
 object ReduceHelper {
   def toPipe[S, T](r: Reduction[T] with HasComputeConfig[S, _]): IgnitePipe[T] =
-    IgnitePipe.from(r.execute.toIterable)(r.compute)
+    IgnitePipe.from(Iterable(()))(r.compute)
+      .flatMap(_ => r.execute.toIterable)
 }
