@@ -12,9 +12,8 @@ import ignite.scala._
 
 val cfg = new IgniteConfiguration
 // configure as appropriate
-
 val ignite = Ignition.start(cfg)
-val compute = ignite.compute(cluster)
+val compute = ignite.compute(ignite.cluster)
 implicit val cr = ComputeRunner(compute)
 ```
 #### example 1 - character count
@@ -48,7 +47,7 @@ IgnitePipe.from(keys)
   .filter(isValid)
   .execute // Iterable[R]
 ```
-#### example 3 -collocating compute with cache
+#### example 3 - collocating compute with cache
 Ignite allows routing computations to the nodes where data is cached.
 ```scala
 IgnitePipe.collocated(cache, keys) { (c, k) =>
@@ -57,6 +56,23 @@ IgnitePipe.collocated(cache, keys) { (c, k) =>
 }
 .filter(isValid)
 .execute
+```
+#### example 4 - more chaining
+```scala
+val cache: IgniteCache[K, V]
+val db: CacheJdbcBlobStore[K, V]
+
+val cacheResults = IgnitePipe.from(keys)
+  .map { k => cacheGetAndCompute(cache, k) }
+
+val dbResults = IgnitePipe.from(keys)
+  .map { k => dbGetAndCompute(db, k) }
+  
+val combined = (cacheResults ++ dbResults)
+  .reduce // reduction can be used to consolidate cache and db
+  .toPipe // continuation
+  
+combined.map { exportResults(_) }.execute
 ```
 #### core api
 
