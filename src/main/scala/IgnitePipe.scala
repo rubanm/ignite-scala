@@ -11,6 +11,9 @@ object IgnitePipe {
   def from[T](iter: Iterable[T])(implicit c: ComputeRunner): IgnitePipe[T] =
     IterablePipe[T](iter)
 
+  def from[T](iterGen: () => Iterable[T])(implicit c: ComputeRunner): IgnitePipe[T] =
+    from(List(())).flatMap(_ => iterGen())
+
   def collocated[K, V, T](cache: IgniteCache[K, V], keys: Set[K])(f: (IgniteCache[K, V], K) => T)(implicit c: ComputeRunner): CacheAffinityPipe[K, V, T] =
     new CacheAffinityPipe[K, V, T] {
       override def compute = c
@@ -71,6 +74,7 @@ sealed trait IgnitePipe[T] extends Serializable {
    */
   def reduce(implicit sg: Semigroup[T]): Reduction[T]
 
+  /** Merge two pipes of the same type*/
   def ++(p: IgnitePipe[T]): IgnitePipe[T] = p match {
     case IterablePipe(iter) if iter.isEmpty => this
     case _ => MergedPipe(this, p)
@@ -128,7 +132,7 @@ sealed abstract class TransformValuePipe[S, T] extends IgnitePipe[T]
   override def reduce(implicit sg: Semigroup[T]) =
     TransformValueReduction.from(this)(sg)
 
-  override def fork = flatMap(Iterable(_)).map(identity)
+  override def fork = PipeHelper.forkPipe(this)
 
   override def execute = compute.apply(source)(transform)
 }
@@ -149,7 +153,7 @@ sealed abstract class FlatMapValuePipe[S, T] extends IgnitePipe[T]
   override def reduce(implicit sg: Semigroup[T]) =
     FlatMapValueReduction.from(this)(sg)
 
-  override def fork = flatMap(Iterable(_)).map(identity)
+  override def fork = PipeHelper.forkPipe(this)
 
   override def execute = compute.flatMapApply[S, T](source)(transform)
 }
@@ -170,7 +174,7 @@ sealed abstract class CacheAffinityPipe[K, V, T] extends IgnitePipe[T]
   override def reduce(implicit sg: Semigroup[T]) =
     CacheAffinityValueReduction.from(this)(sg)
 
-  override def fork = flatMap(Iterable(_)).map(identity)
+  override def fork = PipeHelper.forkPipe(this)
 
   override def execute = compute.affinityApply(source)(transform)
 }
@@ -192,7 +196,7 @@ sealed abstract class FlatMapCacheAffinityPipe[K, V, T] extends IgnitePipe[T]
   override def reduce(implicit sg: Semigroup[T]) =
     FlatMapCacheAffinityReduction.from(this)(sg)
 
-  override def fork = flatMap(Iterable(_)).map(identity)
+  override def fork = PipeHelper.forkPipe(this)
 
   override def execute = compute.flatMapAffinityApply(source)(transform)
 }
@@ -209,14 +213,16 @@ final case class MergedPipe[T](left: IgnitePipe[T], right: IgnitePipe[T])
   override def reduce(implicit sg: Semigroup[T]) =
     MergedReduction(left.reduce, right.reduce)
 
-  override def fork = flatMap(Iterable(_)).map(identity)
+  override def fork = this
 
   override def execute = left.execute ++ right.execute
 }
 
 /**
  * A pipe containing a sequence of values.
- * Can be generally used as the starting point in the execution chain.
+ *
+ * Can be generally used as the starting point in the execution chain. The sequence is
+ * partitioned and load balanced across the cluster nodes.
  */
 final case class IterablePipe[T](iter: Iterable[T])(implicit val compute: ComputeRunner)
   extends IgnitePipe[T] {
@@ -275,7 +281,7 @@ private object PipeHelper {
     }
 
   // this adds a barrier. the supplied function f is executed
-  // on the cluster after flatten step of the input pipe is
+  // on the cluster only after flatten step of the input pipe is
   // executed on the client
   def toTransformValuePipe[S, T, U](fvp: FlatMapValuePipe[S, T])(f: T => U): TransformValuePipe[T, U] =
     IterablePipe(fvp.execute)(fvp.compute).map(f)
@@ -304,6 +310,18 @@ private object PipeHelper {
       override val source = fcap.source
       override def transform = fcap.transform.andThen(_.map(f)).andThen(_.flatten)
     }
+
+  def forkPipe[S, T](tvp: TransformValuePipe[S, T]): IgnitePipe[T] =
+    IgnitePipe.from(() => tvp.execute)(tvp.compute)
+
+  def forkPipe[S, T](fvp: FlatMapValuePipe[S, T]): IgnitePipe[T] =
+    IgnitePipe.from(() => fvp.execute)(fvp.compute)
+
+  def forkPipe[K, V, T](cap: CacheAffinityPipe[K, V, T]): IgnitePipe[T] =
+    IgnitePipe.from(() => cap.execute)(cap.compute)
+
+  def forkPipe[K, V, T](fcap: FlatMapCacheAffinityPipe[K, V, T]): IgnitePipe[T] =
+    IgnitePipe.from(() => fcap.execute)(fcap.compute)
 }
 
 object ReduceHelper {
