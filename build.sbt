@@ -9,12 +9,16 @@ scalaVersion := crossScalaVersions.value.head
 val igniteVersion = "1.0.0"
 val algebirdVersion = "0.10.1"
 val twitterUtilVersion = "6.24.0"
+val scalaTestVersion = "2.2.4"
 
 libraryDependencies ++= Seq(
   "org.apache.ignite" % "ignite-core" % igniteVersion,
   "com.twitter" %% "algebird-core" % algebirdVersion,
-  "com.twitter" %% "util-logging" % twitterUtilVersion
+  "com.twitter" %% "util-logging" % twitterUtilVersion,
+  "org.scalatest" %% "scalatest" % scalaTestVersion % "test"
 )
+
+parallelExecution in Test := false
 
 homepage := Some(url(s"https://github.com/softprops/${name.value}/"))
 
