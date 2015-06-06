@@ -3,6 +3,10 @@ name := "ignite-scala"
 version := "0.0.1"
 description := "scala api for distributed closures on apache ignite"
 
+licenses :=
+  Seq("MIT" ->
+      url(s"https://github.com/rubanm/${name.value}/blob/master/LICENSE"))
+
 crossScalaVersions := Seq("2.10.5", "2.11.6")
 scalaVersion := crossScalaVersions.value.head
 
