@@ -10,8 +10,7 @@ import org.apache.ignite._
 import org.apache.ignite.configuration._
 import ignite.scala._
 
-val cfg = new IgniteConfiguration
-// configure as appropriate
+val cfg = new IgniteConfiguration // configure as appropriate
 val ignite = Ignition.start(cfg)
 val compute = ignite.compute(ignite.cluster)
 implicit val cr = ComputeRunner(compute)
@@ -36,7 +35,7 @@ val cache = {
   ignite.getOrCreateCache(cfg)
 }
 
-val process: V => R
+val process: V => R // computation
 val isValid: R => Boolean
 
 IgnitePipe.from(keys)
@@ -69,10 +68,18 @@ val dbResults = IgnitePipe.from(keys)
   .map { k => dbGetAndCompute(db, k) }
   
 val combined = (cacheResults ++ dbResults)
-  .reduce // reduction can be used to consolidate cache and db
+  .reduce // reduction could be to consolidate cache and db for instance
   .toPipe // continuation
   
 combined.map { exportResults(_) }.execute
+```
+
+#### installing
+
+Add the following to your build.sbt (fetches from sonatype)
+```scala
+resolvers += Resolver.sonatypeRepo("releases")
+libraryDependencies += "com.github.rubanm" %% "ignite-scala" % "0.0.1"
 ```
 #### core api
 
@@ -91,7 +98,7 @@ trait IgnitePipe[T] {
   def execute: Iterable[T]
 }
 
-/* Represents a reduction of Ignite's distributed closure results.*/
+/* Represents a reduction of the distributed closure results.*/
 trait Reduction[T] {
 
   def execute: Option[T]
