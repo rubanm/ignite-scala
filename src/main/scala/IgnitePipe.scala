@@ -49,6 +49,8 @@ sealed trait IgnitePipe[T] extends Serializable {
   /**
    * Transform each value using the function f and flatten the result.
    *
+   * Note: This is not a monadic composition.
+   *
    * Flatten step is performed on the client. If you have a chain of flatMaps,
    * all functions in the chain are composed and flattening is performed once
    * on the client.
